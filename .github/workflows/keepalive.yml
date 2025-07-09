@@ -1,4 +1,4 @@
-name: Aternos Keep‑Alive
+name: Aternos Keep-Alive
 
 on:
   schedule:
@@ -9,13 +9,19 @@ jobs:
   keepalive:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
-      - run: npm install
-      - name: Run keep-alive
-        run: npm start
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Start script
         env:
           ATERNOS_USER: ${{ secrets.ATERNOS_USER }}
           ATERNOS_PASS: ${{ secrets.ATERNOS_PASS }}
+        run: npm start
