@@ -1,44 +1,45 @@
-// ملف: keep-alive.js
-
+// keep-alive.js
 const puppeteer = require('puppeteer');
+const axios = require('axios');
 
 const USERNAME = process.env.ATERNOS_USER;
 const PASSWORD = process.env.ATERNOS_PASS;
+const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL; // Optional
 const SERVER_URL = 'https://aternos.org/server/';
+
+async function sendDiscordMessage(message) {
+  if (!WEBHOOK_URL) return;
+  await axios.post(WEBHOOK_URL, { content: message });
+}
 
 (async () => {
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
+  await page.goto('https://aternos.org/go/', { waitUntil: 'networkidle2' });
 
-  try {
-    await page.goto('https://aternos.org/accounts/login/', { waitUntil: 'networkidle2' });
+  // تسجيل الدخول
+  await page.goto('https://aternos.org/servers/', { waitUntil: 'networkidle2' });
+  await page.type('#user', USERNAME);
+  await page.type('#password', PASSWORD);
+  await page.click('#login');
+  await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
-    // تعبئة اسم المستخدم وكلمة المرور
-    await page.type('input[name="user"]', USERNAME);
-    await page.type('input[name="password"]', PASSWORD);
-    await page.click('button[type="submit"]');
+  await page.goto(SERVER_URL, { waitUntil: 'networkidle2' });
+  await page.waitForSelector('#start');
 
-    await page.waitForNavigation({ waitUntil: 'networkidle2' });
+  const isOnline = await page.evaluate(() => {
+    return document.querySelector('#statuslabel.online') !== null;
+  });
 
-    // الذهاب إلى صفحة السيرفر
-    await page.goto(SERVER_URL, { waitUntil: 'networkidle2' });
-
-    // انتظار زر التشغيل والضغط عليه إذا كان موجودًا
-    const startButtonSelector = '.server-start';
-    const isStartVisible = await page.$(startButtonSelector);
-    if (isStartVisible) {
-      await page.click(startButtonSelector);
-      console.log('✅ تم الضغط على زر التشغيل.');
-    } else {
-      console.log('ℹ️ السيرفر يعمل أو لا يوجد زر تشغيل.');
-    }
-
-    // إبقاء الصفحة نشطة لبعض الوقت
-    await page.waitForTimeout(30000); // 30 ثانية
-
-  } catch (err) {
-    console.error('❌ حدث خطأ:', err);
-  } finally {
-    await browser.close();
+  if (isOnline) {
+    console.log("السيرفر مفتوح.");
+    await sendDiscordMessage("✅ السيرفر بالفعل مفتوح على Aternos!");
+  } else {
+    console.log("السيرفر مغلق، سيتم تشغيله...");
+    await page.click('#start');
+    await page.waitForTimeout(5000);
+    await sendDiscordMessage("🟢 تم تشغيل السيرفر على Aternos!");
   }
+
+  await browser.close();
 })();
